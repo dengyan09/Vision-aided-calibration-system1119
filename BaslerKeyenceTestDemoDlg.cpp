@@ -484,8 +484,15 @@ void  CBaslerKeyenceTestDemoDlg::Cam_DeviceInitial()
 	GenApi::CIntegerPtr width = nodemap.GetNode("Width");
 	GenApi::CIntegerPtr height = nodemap.GetNode("Height");
 
+	//软件崩掉时，相机状态会出现In Use的情况，将basler相机的心跳包时间（HeartbeatTimeout）设短，可以解决这个问题。2021.11.19
+	GenApi::CIntegerPtr pHeartbeat = camera.GetTLNodeMap().GetNode("HeartbeatTimeout");
+	if (pHeartbeat != nullptr)
+	{
+		pHeartbeat->SetValue(3000);//心跳包时间设为3s
+	}
+
 	//设置相机最大缓冲区,默认为10
-	camera.MaxNumBuffer = 500;
+	camera.MaxNumBuffer = 10;
 	// 新建pylon ImageFormatConverter对象.
 	CImageFormatConverter formatConverter;
 	//确定输出像素格式  将相机采集的图片改成特定的图像格式==有问题修改此处==11.16===
@@ -506,8 +513,12 @@ void  CBaslerKeyenceTestDemoDlg::Cam_DeviceInitial()
 	//VideoWriter::fourcc   使用方式与CV_FOURCC宏一样
 
 	//开始抓取"c_countOfImagesToGrab" 张图片
-	//相机默认设置连续抓取模式
-	camera.StartGrabbing(c_countOfImagesToGrab, GrabStrategy_LatestImages);
+
+	//camera.StartGrabbing(c_countOfImagesToGrab, GrabStrategy_LatestImages);
+	//2021.11.19只针对相机做抓取策略的设置“GrabStrategy_LatestImages”是实时抓图最好的策略
+	camera.StartGrabbing(GrabStrategy_LatestImages);
+	//camera.StartGrabbing(GrabStrategy_LatestImageOnly);
+	
 	// 当c_countOfImagesToGrab images获取恢复成功时，Camera.StopGrabbing()被RetrieveResult()方法自动调用停止抓取
 
 	while (camera.IsGrabbing())
@@ -570,10 +581,13 @@ void  CBaslerKeyenceTestDemoDlg::Cam_DeviceInitial()
 void CBaslerKeyenceTestDemoDlg::OnBnClickedStopgrabBtn()
 {
 	// TODO: 在此添加控件通知处理程序代码	
-	camera.StopGrabbing();
-	camera.Close();
+	//camera.StopGrabbing();
+	//camera.Close();
 	camera.DetachDevice();
-	//PylonTerminate();
+	camera.DestroyDevice();
+	PylonTerminate();
+
+
 	//将连续发送测量指令的线程中的标志位置0
 	conflag = 0;
 
